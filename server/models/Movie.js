@@ -12,7 +12,8 @@ const movieSchema = new mongoose.Schema({
     genres: { type: Array, required: true },
     casts: { type: Array, required: true },
     vote_average: { type: Number, required: true },
-    runtime: { type: Number, required: true }
+    runtime: { type: Number, required: true },
+    trailer_key: { type: String }
 }, { timestamps: true });
 
 const Movie = mongoose.model('Movie', movieSchema);

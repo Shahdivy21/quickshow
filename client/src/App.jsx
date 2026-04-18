@@ -13,7 +13,7 @@ import MovieDetails from "./pages/MovieDetails";
 import Seatlayout from "./pages/SeatLayout";
 import MyBookings from "./pages/MyBookings";
 import Favorite from "./pages/Favorite";
-import TheaterList from "./pages/TheaterList";
+
 import Theaters from "./pages/Theaters";
 import Releases from "./pages/Releases";
 import Login from "./pages/Login";
@@ -68,7 +68,7 @@ const App = () => {
         <Route path="/my-bookings" element={<MyBookings />} />
         <Route path="/loading/:nextUrl" element={<Loading />} />
         <Route path="/favorite" element={<Favorite />} />
-        <Route path="/movies/:id/theaters" element={<TheaterList />} />
+
         <Route path="/theaters" element={<Theaters />} />
         <Route path="/releases" element={<Releases />} />
         <Route path="/login" element={<Login />} />

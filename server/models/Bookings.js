@@ -11,6 +11,8 @@ const bookingSchema = new mongoose.Schema(
     bookedSeats: { type: [String], required: true },
     isPaid: { type: Boolean, default: false },
     paymentLink: { type: String },
+    paymentId: { type: String }, // Store Razorpay Payment ID for refunds
+    status: { type: String, default: "booked", enum: ["booked", "cancelled"] },
   },
   { timestamps: true }
 );

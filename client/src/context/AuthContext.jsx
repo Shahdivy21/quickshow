@@ -11,6 +11,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [shows, setShows] = useState([]);
+  const [showsLoading, setShowsLoading] = useState(true);
   const [favoritesMovies, setFavoriteMovies] = useState([]);
 
   const API_URL = import.meta.env.VITE_API_URL;
@@ -49,11 +50,8 @@ export const AuthProvider = ({ children }) => {
       if (res.data.success) {
         setUser(res.data.user);
         localStorage.setItem("user", JSON.stringify(res.data.user));
+        toast.success("Login Successful! Welcome back 🎬");
       }
-
-      // Redirect based on role
-      if (res.data.user.isAdmin) window.location.href = "/admin";
-      else window.location.href = "/";
 
       return res.data;
     } catch (err) {
@@ -80,6 +78,7 @@ export const AuthProvider = ({ children }) => {
       if (res.data.success) {
         setUser(res.data.user);
         localStorage.setItem("user", JSON.stringify(res.data.user));
+        toast.success("Account Created Successfully! Welcome to QuickShow 🎉");
       }
 
       return res.data;
@@ -97,6 +96,7 @@ export const AuthProvider = ({ children }) => {
       await axios.post(`${API_URL}/api/auth/logout`, {}, { withCredentials: true });
       setUser(null);
       localStorage.removeItem("user");
+      toast.success("Logged out successfully. See you soon! 👋");
     } catch (err) {
       console.error(err);
     }
@@ -132,11 +132,15 @@ export const AuthProvider = ({ children }) => {
   // Fetch Shows
   // -----------------------------
   const fetchShows = async () => {
+    setShowsLoading(true);
     try {
       const { data } = await axios.get(`${API_URL}/api/shows/all`);
       if (data.success) setShows(data.shows);
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to fetch shows");
+      console.error("Fetch shows error:", err);
+      // Don't show toast on every refresh if possible, or handle silenty
+    } finally {
+      setShowsLoading(false);
     }
   };
 
@@ -193,6 +197,7 @@ export const AuthProvider = ({ children }) => {
         logout,
         uploadProfilePic,
         shows,
+        showsLoading,
         favoritesMovies,
         fetchFavoriteMovies,
         toggleFavoriteMovie,

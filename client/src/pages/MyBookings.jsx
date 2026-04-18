@@ -12,6 +12,8 @@ const MyBookings = () => {
   const { axios, user, image_base_url } = useAuth();
   const [bookings, setBookings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [cancellationModal, setCancellationModal] = useState({ open: false, booking: null });
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -28,6 +30,35 @@ const MyBookings = () => {
       console.error("Error fetching bookings:", err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // 📌 Handle Cancellation Click
+  const handleCancelBooking = (bookingItem) => {
+    setCancellationModal({ open: true, booking: bookingItem });
+  };
+
+  const confirmCancelBooking = async () => {
+    const bookingId = cancellationModal.booking._id;
+    setIsCancelling(true);
+    
+    try {
+      const { data } = await axios.post(`/api/bookings/cancel/${bookingId}`, {}, {
+        withCredentials: true,
+      });
+
+      if (data.success) {
+        toast.success(data.message || "Booking cancelled successfully");
+        getMyBookings(); // Refresh list immediately
+        setCancellationModal({ open: false, booking: null });
+      } else {
+        toast.error(data.message || "Failed to cancel booking");
+      }
+    } catch (err) {
+      console.error("Cancel API Error:", err);
+      toast.error(err.response?.data?.message || "Failed to process cancellation");
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -111,7 +142,7 @@ const MyBookings = () => {
                   {item.amount}
                 </p>
 
-                {!item.isPaid && item.paymentLink && (
+                {!item.isPaid && item.paymentLink && item.status !== "cancelled" && (
                   <a
                     href={item.paymentLink}
                     target="_blank"
@@ -121,9 +152,31 @@ const MyBookings = () => {
                     Pay Now
                   </a>
                 )}
+                
+                {item.status === "cancelled" && (
+                  <span className="bg-red-500/20 text-red-400 border border-red-500/30 px-3 py-1 text-xs rounded-full font-bold uppercase">
+                    Refunded / Cancelled
+                  </span>
+                )}
+
+                {item.status !== "cancelled" && item.isPaid && 
+                  new Date(item.show.showDateTime || item.showTime).getTime() > Date.now() && (
+                  <button
+                    onClick={() => handleCancelBooking(item)}
+                    className="bg-gray-800 hover:bg-red-600 border border-gray-700 hover:border-red-500 text-white px-4 py-2 text-sm rounded-full font-medium transition-all duration-300"
+                  >
+                    Cancel & Refund
+                  </button>
+                )}
               </div>
 
-              <div className="text-sm mt-2 md:mt-4">
+              <div className="text-sm mt-2 md:mt-4 text-left md:text-right w-full">
+                <p>
+                  <span className="text-gray-400">Status: </span>
+                  <span className={item.status === "cancelled" ? "text-red-400 font-medium" : "text-green-400 font-medium"}>
+                    {item.status === "cancelled" ? "Cancelled" : "Confirmed"}
+                  </span>
+                </p>
                 <p>
                   <span className="text-gray-400">Total Tickets: </span>
                   {item.bookedSeats.length}
@@ -138,6 +191,53 @@ const MyBookings = () => {
         ))
       ) : (
         <p className="text-gray-400">No bookings found.</p>
+      )}
+
+      {/* 🔴 CANCELLATION MODAL */}
+      {cancellationModal.open && cancellationModal.booking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
+            <h2 className="text-2xl font-bold text-red-500 mb-2">Cancel Booking?</h2>
+            <p className="text-sm text-gray-400 mb-6">
+              Are you sure you want to cancel? The following tickets will be permanently released.
+            </p>
+
+            <div className="flex gap-4 p-4 bg-gray-800/50 rounded-xl mb-6">
+              <img
+                src={image_base_url + cancellationModal.booking.show.movie.poster_path}
+                alt={cancellationModal.booking.show.movie.title}
+                className="w-20 h-28 object-cover rounded-lg shadow-md"
+              />
+              <div className="flex flex-col justify-center text-sm">
+                <p className="font-bold text-lg leading-tight mb-1">{cancellationModal.booking.show.movie.title}</p>
+                <p className="text-gray-300"><span className="text-gray-500 text-xs">Date:</span> {dateFormate(cancellationModal.booking.show.showDateTime || cancellationModal.booking.showTime)}</p>
+                <p className="text-gray-300"><span className="text-gray-500 text-xs">Seats:</span> {cancellationModal.booking.bookedSeats.join(", ")}</p>
+                <p className="text-primary font-bold mt-1 max-w-max bg-primary/10 px-2 py-0.5 rounded">Refund: {currency}{cancellationModal.booking.amount}</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setCancellationModal({ open: false, booking: null })}
+                disabled={isCancelling}
+                className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-medium transition"
+              >
+                No, Keep it
+              </button>
+              <button
+                onClick={confirmCancelBooking}
+                disabled={isCancelling}
+                className="flex-[1.2] py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold transition flex justify-center items-center gap-2"
+              >
+                {isCancelling ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  "Yes, Cancel & Refund"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

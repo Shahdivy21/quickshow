@@ -24,6 +24,41 @@ export const getNowPlayingMovies = async (req, res) => {
   }
 };
 
+export const getTopRatedMovies = async (req, res) => {
+  try {
+    const url = "https://api.themoviedb.org/3/movie/top_rated?language=en-US&page=1";
+    const { data } = await axios.get(url, {
+      headers: {
+        accept: "application/json",
+        Authorization: `Bearer ${process.env.TMDB_API_KEY}`,
+      },
+    });
+    res.json({ success: true, movies: data.results });
+  } catch (err) {
+    console.error("TMDB Error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to fetch top rated movies" });
+  }
+};
+
+export const searchMovies = async (req, res) => {
+  try {
+    const { query } = req.query;
+    if (!query) return res.json({ success: true, movies: [] });
+
+    const url = `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(query)}&language=en-US&page=1`;
+    const { data } = await axios.get(url, {
+      headers: {
+        accept: "application/json",
+        Authorization: `Bearer ${process.env.TMDB_API_KEY}`,
+      },
+    });
+    res.json({ success: true, movies: data.results });
+  } catch (err) {
+    console.error("TMDB Error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to search movies" });
+  }
+};
+
 /* =========================================================
    2️⃣ ADD SHOWS FOR A MOVIE (Admin)
 ========================================================= */
@@ -136,7 +171,9 @@ export const getAllShows = async (req, res) => {
       }
     });
 
-    res.json({ success: true, shows: [...map.values()] });
+    const sortedMovies = [...map.values()].sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+
+    res.json({ success: true, shows: sortedMovies });
   } catch (error) {
     console.error("❌ Error in getAllShows:", error);
     res.status(500).json({ success: false, message: error.message });
@@ -169,9 +206,11 @@ export const getAllShowsGrouped = async (req, res) => {
       });
     });
 
+    const sortedGrouped = Object.values(grouped).sort((a, b) => (b.movie?.vote_average || 0) - (a.movie?.vote_average || 0));
+
     res.json({
       success: true,
-      shows: Object.values(grouped)
+      shows: sortedGrouped
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -193,7 +232,16 @@ export const getShow = async (req, res) => {
         .json({ success: false, message: "Movie not found" });
     }
 
-    const shows = await Show.find({ movie: movieId }).sort({
+    // Filter shows: Today to Today + 9 days (10 days total)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tenDaysLater = new Date(today);
+    tenDaysLater.setDate(today.getDate() + 10);
+
+    const shows = await Show.find({ 
+      movie: movieId,
+      showDateTime: { $gte: today, $lt: tenDaysLater }
+    }).sort({
       showDateTime: 1,
     });
 
@@ -390,6 +438,22 @@ export const deleteShow = async (req, res) => {
   }
 };
 
+// ─── Delete ALL shows for a movie ────────────────────────────────────────────
+export const deleteAllShowsByMovie = async (req, res) => {
+  try {
+    const { movieId } = req.params;
+    const result = await Show.deleteMany({ movie: movieId });
+    res.json({
+      success: true,
+      message: `Deleted ${result.deletedCount} show(s) for this movie`,
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    console.error("❌ Delete all shows error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 
 export const getShowsForAdmin = async (req, res) => {
   try {
@@ -400,5 +464,128 @@ export const getShowsForAdmin = async (req, res) => {
     res.json({ success: true, shows });
   } catch (err) {
     res.status(500).json({ success: false, message: "Failed to fetch movie shows" });
+  }
+};
+export const getTopTrailers = async (req, res) => {
+  try {
+    // 1. Get all shows from now onwards
+    const shows = await Show.find({ showDateTime: { $gte: new Date() } }).populate("movie");
+
+    // 2. Get unique movies from these shows
+    const map = new Map();
+    shows.forEach((show) => {
+      if (show.movie) {
+        map.set(show.movie._id.toString(), show.movie);
+      }
+    });
+
+    // 3. Sort movies by rating (vote_average) descending
+    const sortedMovies = [...map.values()].sort(
+      (a, b) => (b.vote_average || 0) - (a.vote_average || 0)
+    );
+
+    // 4. Fetch trailers for top movies
+    const apiKey = process.env.TMDB_API_KEY;
+    const topTrailers = [];
+    
+    // We'll check the top 10 rated movies to find 4 trailers
+    const candidates = sortedMovies.slice(0, 10);
+    
+    const trailerPromises = candidates.map(async (movie) => {
+      // Return cached key if exists
+      if (movie.trailer_key) {
+        return {
+          movieId: movie._id,
+          title: movie.title,
+          image: `https://img.youtube.com/vi/${movie.trailer_key}/maxresdefault.jpg`,
+          videoUrl: `https://www.youtube.com/watch?v=${movie.trailer_key}`,
+        };
+      }
+
+      // Fetch from TMDB if not cached
+      try {
+        const { data } = await axios.get(
+          `https://api.themoviedb.org/3/movie/${movie._id}/videos`,
+          {
+            headers: {
+              accept: "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+          }
+        );
+
+        const trailer =
+          data.results.find((v) => v.site === "YouTube" && v.type === "Trailer") ||
+          data.results.find((v) => v.site === "YouTube");
+
+        if (trailer) {
+          // Cache the key in background
+          Movie.findByIdAndUpdate(movie._id, { trailer_key: trailer.key }).exec();
+          
+          return {
+            movieId: movie._id,
+            title: movie.title,
+            image: `https://img.youtube.com/vi/${trailer.key}/maxresdefault.jpg`,
+            videoUrl: `https://www.youtube.com/watch?v=${trailer.key}`,
+          };
+        }
+      } catch (err) {
+        console.error(`❌ TMDB error for ${movie._id}:`, err.message);
+      }
+      return null;
+    });
+
+    const results = await Promise.all(trailerPromises);
+    
+    // Filter out nulls and take the first 4
+    const validTrailers = results.filter(t => t !== null).slice(0, 4);
+
+    res.json({ success: true, trailers: validTrailers });
+  } catch (error) {
+    console.error("❌ getTopTrailers error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+export const getMovieTrailer = async (req, res) => {
+  try {
+    const { movieId } = req.params;
+    
+    // 1. Check database cache first
+    const movie = await Movie.findById(movieId);
+    if (movie && movie.trailer_key) {
+      return res.json({ success: true, trailerKey: movie.trailer_key });
+    }
+
+    const apiKey = process.env.TMDB_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ success: false, message: "TMDb API key not configured" });
+    }
+
+    // 2. Fetch from TMDB
+    const { data } = await axios.get(
+      `https://api.themoviedb.org/3/movie/${movieId}/videos`,
+      {
+        headers: {
+          accept: "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+      }
+    );
+
+    const trailer =
+      data.results.find((v) => v.site === "YouTube" && v.type === "Trailer") ||
+      data.results.find((v) => v.site === "YouTube");
+
+    if (!trailer) {
+      return res.status(404).json({ success: false, message: "Trailer not found" });
+    }
+
+    // 3. Cache the trailer key
+    await Movie.findByIdAndUpdate(movieId, { trailer_key: trailer.key });
+
+    res.json({ success: true, trailerKey: trailer.key });
+  } catch (error) {
+    console.error("❌ getMovieTrailer error:", error.message);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };

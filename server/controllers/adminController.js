@@ -20,11 +20,14 @@ export const getDashboardData = async (req, res) => {
     const bookings = await Booking.find();
     const users = await User.find();
 
-    // Correct revenue (uses amount field)
+    // Correct revenue — exclude cancelled bookings
     const totalRevenue = bookings.reduce(
-      (sum, b) => sum + (b.amount || 0),
+      (sum, b) => sum + (b.isPaid && b.status !== "cancelled" ? (b.amount || 0) : 0),
       0
     );
+
+    // Total bookings = only paid, non-cancelled ones
+    const totalBookings = bookings.filter(b => b.isPaid && b.status !== "cancelled").length;
 
     // Group shows by movie
     const movieMap = new Map();
@@ -72,11 +75,54 @@ export const getDashboardData = async (req, res) => {
       };
     });
 
+    // Chart Data (Daily Bookings and Revenue)
+    const chartMap = bookings.reduce((acc, b) => {
+      const dateStr = new Date(b.createdAt).toISOString().split("T")[0];
+      if (!acc[dateStr]) {
+        acc[dateStr] = {
+          date: dateStr,
+          ticketsBooked: 0,
+          cancelledTickets: 0,
+          successRevenue: 0,
+          failedRevenue: 0,
+        };
+      }
+      
+      const seats = Array.isArray(b.bookedSeats) ? b.bookedSeats.length : 0;
+
+      if (b.status === "cancelled") {
+        acc[dateStr].cancelledTickets += seats;
+        acc[dateStr].failedRevenue += (b.amount || 0);
+      } else if (b.isPaid) {
+        acc[dateStr].ticketsBooked += seats;
+        acc[dateStr].successRevenue += (b.amount || 0);
+      } else {
+        // unpaid/pending — count as failed revenue but 0 tickets booked
+        acc[dateStr].failedRevenue += (b.amount || 0);
+      }
+
+      return acc;
+    }, {});
+
+    const chartData = Object.values(chartMap).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    // For Recent Bookings
+    const recentBookings = await Booking.find()
+      .populate("user")
+      .populate({
+        path: "show",
+        populate: { path: "movie" }
+      })
+      .sort({ createdAt: -1 })
+      .limit(50); // Get top 50 recent bookings for table
+
     const dashboardData = {
-      totalBookings: bookings.length,
+      totalBookings,
       totalRevenue,
       totalUser: users.length,
-      activeShows
+      activeShows,
+      chartData,
+      recentBookings
     };
 
     return res.status(200).json({ success: true, dashboardData });
@@ -95,25 +141,34 @@ export const getDashboardData = async (req, res) => {
 // -------------------------------------------
 export const getAllShows = async (req, res) => {
   try {
-    const shows = await Show.find().populate("movie").sort({ showDateTime: 1 });
+    const shows = await Show.find().populate("movie").sort({ showDateTime: 1 }).lean();
 
-    const showsWithEarnings = await Promise.all(
-      shows.map(async show => {
-        const paidBookings = await Booking.find({ show: show._id, isPaid: true });
+    // ─── Single aggregation to get booking counts & earnings per show ───────────
+    const bookingStats = await Booking.aggregate([
+      { $match: { isPaid: true, status: { $ne: "cancelled" } } },
+      {
+        $group: {
+          _id: "$show",
+          totalBookings: { $sum: 1 },
+          totalEarnings: { $sum: "$amount" },
+        },
+      },
+    ]);
 
-        const totalBookings = paidBookings.length;
-        const totalEarnings = paidBookings.reduce(
-          (sum, b) => sum + (b.amount || 0),
-          0
-        );
+    // Build a lookup map: showId → { totalBookings, totalEarnings }
+    const statsMap = {};
+    bookingStats.forEach((s) => {
+      statsMap[s._id.toString()] = {
+        totalBookings: s.totalBookings,
+        totalEarnings: s.totalEarnings,
+      };
+    });
 
-        return {
-          ...show.toObject(),
-          totalBookings,
-          totalEarnings
-        };
-      })
-    );
+    // Merge stats into shows
+    const showsWithEarnings = shows.map((show) => {
+      const stats = statsMap[show._id.toString()] || { totalBookings: 0, totalEarnings: 0 };
+      return { ...show, ...stats };
+    });
 
     res.status(200).json({ success: true, shows: showsWithEarnings });
 

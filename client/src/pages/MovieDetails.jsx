@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Heart, PlayCircleIcon, StarIcon } from "lucide-react";
+import { Heart, PlayCircleIcon, StarIcon, X, MapPin, Clock } from "lucide-react";
 import axios from "axios";
 import toast from "react-hot-toast";
 
@@ -17,6 +17,10 @@ const MovieDetails = () => {
   const [show, setShow] = useState(null);
   const [isFavorited, setIsFavorited] = useState(false);
   const [youMayLike, setYouMayLike] = useState([]);
+  const [trailerKey, setTrailerKey] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [trailerLoading, setTrailerLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
 
   // Fetch movie details
   const getShow = async () => {
@@ -76,7 +80,33 @@ const MovieDetails = () => {
     }
   };
 
+  // Watch Trailer
+  const handleWatchTrailer = async () => {
+    setTrailerLoading(true);
+    try {
+      const { data } = await axios.get(`/api/shows/movie/${show.movie._id}/trailer`);
+      if (data.success) {
+        setTrailerKey(data.trailerKey);
+        setShowModal(true);
+      }
+    } catch (error) {
+      console.error("❌ Error fetching trailer:", error);
+      toast.error(error.response?.data?.message || "Trailer not available");
+    } finally {
+      setTrailerLoading(false);
+    }
+  };
+
   useEffect(() => { getShow(); }, [id]);
+  
+  useEffect(() => {
+    if (show?.dateTime) {
+      const dates = Object.keys(show.dateTime);
+      if (dates.length > 0 && !selectedDate) {
+        setSelectedDate(dates[0]);
+      }
+    }
+  }, [show]);
   useEffect(() => { if (show?.movie) checkFavoriteStatus(); }, [show]);
   // useEffect(() => { if (show?.movie) fetchYouMayLike(); }, [show]);
 
@@ -101,8 +131,21 @@ const MovieDetails = () => {
           <p>{timeFormate(show.movie.runtime)} • {show.movie.genres?.map(g => g.name).join(", ")} • {year}</p>
           {/* Action Buttons */}
           <div className="flex items-center flex-wrap gap-4 mt-4">
-            <button className="flex items-center gap-2 px-7 py-3 text-sm bg-gray-800 hover:bg-gray-900 transition rounded-md font-medium active:scale-95">
-              <PlayCircleIcon className="w-5 h-5"/> Watch Trailer
+            <button 
+              onClick={handleWatchTrailer}
+              disabled={trailerLoading}
+              className="flex items-center gap-2 px-7 py-3 text-sm bg-gray-800 hover:bg-gray-900 transition rounded-md font-medium active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {trailerLoading ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Playing...</span>
+                </div>
+              ) : (
+                <>
+                  <PlayCircleIcon className="w-5 h-5"/> Watch Trailer
+                </>
+              )}
             </button>
             <a href="#dateSelect" className="px-10 py-3 text-sm bg-primary hover:bg-primary-dull transition rounded-md font-medium active:scale-95">Buy Tickets</a>
             <button className="bg-gray-700 p-2.5 rounded-full transition active:scale-95" onClick={handleFavoriteClick} title={isFavorited ? "Remove from favorites" : "Add to favorites"}>
@@ -125,10 +168,102 @@ const MovieDetails = () => {
         </div>
       </div>
 
-      {/* Date Selection */}
-      <DateSelect dateTime={show.dateTime} id={id} />
+      {/* Date & Showtime Selection */}
+      <div className="mt-16 bg-gray-900/50 rounded-3xl p-6 md:p-10 border border-gray-800">
+        <DateSelect 
+          dateTime={show.dateTime} 
+          id={id} 
+          selectedDate={selectedDate} 
+          setSelectedDate={setSelectedDate} 
+        />
 
-      {/* You May Like */}
+        {selectedDate && (
+          <div className="mt-12">
+            <h2 className="text-xl font-bold mb-8 flex items-center gap-3">
+              <span className="w-1.5 h-6 bg-primary rounded-full"></span>
+              Available Timings
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {Object.entries(
+                show.dateTime[selectedDate].reduce((acc, curr) => {
+                  if (!acc[curr.theater]) acc[curr.theater] = [];
+                  acc[curr.theater].push(curr);
+                  return acc;
+                }, {})
+              ).map(([theater, shows]) => (
+                <div key={theater} className="p-6 bg-gray-800/40 rounded-2xl border border-gray-700/50 hover:border-primary/30 transition-all duration-300">
+                  <div className="flex items-start justify-between mb-6">
+                    <div>
+                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-primary" />
+                        {theater}
+                      </h3>
+                      <p className="text-xs text-gray-400 mt-1 uppercase tracking-wider">Premium Experience</p>
+                    </div>
+                    <span className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full uppercase tracking-tighter border border-primary/20">
+                      Standard
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
+                    {shows.map((s) => {
+                      const showDateObj = new Date(s.time);
+                      const isPastShow = showDateObj.getTime() < Date.now();
+                      
+                      const timeString = showDateObj.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      });
+
+                      const handleTimeClick = () => {
+                        if (isPastShow) return; // Prevent navigation if somehow clicked
+                        const query = new URLSearchParams();
+                        query.set("theater", theater);
+                        query.set("time", s.time);
+                        navigate(`/movies/${id}/${selectedDate}?${query.toString()}`);
+                        scrollTo(0, 0);
+                      };
+
+                      return (
+                        <button
+                          key={s.showId}
+                          onClick={handleTimeClick}
+                          disabled={isPastShow}
+                          className={`group flex flex-col items-center gap-1 px-5 py-3 rounded-xl transition-all duration-300 border ${
+                            isPastShow 
+                              ? "bg-gray-900 border-gray-800 opacity-40 cursor-not-allowed" 
+                              : "bg-gray-900 border-gray-700 hover:border-primary hover:bg-primary active:scale-95"
+                          }`}
+                        >
+                          <span className={`text-sm font-bold transition-colors ${
+                            isPastShow ? "text-gray-500" : "group-hover:text-white"
+                          }`}>
+                            {timeString}
+                          </span>
+                          <span className={`text-[10px] transition-opacity ${
+                            isPastShow ? "text-gray-600 hidden" : "opacity-60 group-hover:opacity-100"
+                          }`}>
+                            ₹{s.price}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {Object.keys(show.dateTime[selectedDate]).length === 0 && (
+              <p className="text-center py-10 text-gray-500 italic">
+                No shows available for the selected date.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* You May Also Like */}
       <p className="text-lg font-medium mt-20 mb-8">You May Also Like</p>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 justify-items-center">
         {youMayLike.length > 0
@@ -142,6 +277,33 @@ const MovieDetails = () => {
           Show More
         </button>
       </div>
+      {/* Trailer Modal */}
+      {showModal && trailerKey && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
+          onClick={() => setShowModal(false)}
+        >
+          <div 
+            className="relative w-full max-w-4xl aspect-video bg-black rounded-xl overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button 
+              onClick={() => setShowModal(false)}
+              className="absolute top-4 right-4 z-10 p-2 bg-gray-900/50 hover:bg-gray-800 rounded-full text-white transition"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <iframe
+              src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1`}
+              title="Movie Trailer"
+              className="w-full h-full"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            ></iframe>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

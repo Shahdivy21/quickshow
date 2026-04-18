@@ -97,3 +97,35 @@ export const generateCancellationEmail = ({ userName, movieTitle, theater, showT
   </div>
   `;
 };
+
+// ---------------------------
+// 💸 Booking Refund Email (new)
+// ---------------------------
+export const generateRefundEmail = ({ userName, movieTitle, theater, showTime, amount, currency }) => {
+  return `
+  <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333;">
+    <div style="max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden;">
+      <div style="background-color: #e11d48; color: white; padding: 20px; text-align: center;">
+        <h2>Booking Cancelled & Refund Initiated</h2>
+      </div>
+      <div style="padding: 30px;">
+        <p>Hi <strong>${userName}</strong>,</p>
+        <p>As requested, your booking has been cancelled. A refund of <strong>${currency}${amount}</strong> has been initiated to your original payment method.</p>
+        <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;" />
+        <p><strong>Movie:</strong> ${movieTitle}</p>
+        <p><strong>Theater:</strong> ${theater}</p>
+        <p><strong>Show Time:</strong> ${showTime}</p>
+        <p><strong>Refund Amount:</strong> ${currency}${amount}</p>
+        <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;" />
+        <p style="font-size: 14px; color: #555;">Please allow 5-7 business days for the refund to reflect in your account.</p>
+        <p style="margin-top: 30px; text-align: center;">
+          <a href="http://localhost:5173/my-bookings" style="background-color: #e11d48; color: white; padding: 12px 25px; border-radius: 5px; text-decoration: none;">View My Bookings</a>
+        </p>
+      </div>
+      <div style="background-color: #f3f4f6; color: #555; padding: 15px; text-align: center; font-size: 12px;">
+        QuickShow &copy; 2026. All rights reserved.
+      </div>
+    </div>
+  </div>
+  `;
+};

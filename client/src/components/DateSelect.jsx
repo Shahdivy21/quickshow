@@ -5,57 +5,58 @@ import toast from 'react-hot-toast'
 // import { useNavigate } from 'react-router-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
 
-const DateSelect = ({ dateTime, id }) => {
+const DateSelect = ({ dateTime, id, selectedDate, setSelectedDate }) => {
+  return (
+    <div id="dateSelect" className="pt-20">
+      <div className="relative p-6 bg-gray-800/40 border border-gray-700 rounded-2xl overflow-hidden">
+        <BlurCircle top="-100px" left="-100px" />
+        <BlurCircle top="-100px" right="0px" />
 
-    const navigate = useNavigate();
-    const location = useLocation();
-    const [selected, setSelected] = useState(null)
+        <p className="text-lg font-semibold mb-6 flex items-center gap-2">
+          <span className="w-1.5 h-6 bg-primary rounded-full"></span>
+          Choose Date
+        </p>
 
-    const onBookHandler = () => {
-        if (!selected) {
-            return toast('Please Select The Date')
-        }
-        const sp = new URLSearchParams(location.search);
-        const theaterFromQuery = sp.get('theater');
-        const theaterId = sp.get('theater') || sessionStorage.getItem('selectedTheaterId');
+        <div className="flex items-center gap-4">
+          <button className="p-2 hover:bg-gray-700 rounded-full transition text-gray-400 hover:text-white">
+            <ChevronLeftIcon className="w-6 h-6" />
+          </button>
 
-        // my code - navigate(`/movies/${id}/${selected}`)
+          <div className="flex flex-wrap gap-3 flex-1 justify-center md:justify-start">
+            {Object.keys(dateTime).map((date) => {
+              const dateObj = new Date(date);
+              const isSelected = selectedDate === date;
 
+              return (
+                <button
+                  key={date}
+                  onClick={() => setSelectedDate(date)}
+                  className={`flex flex-col items-center justify-center min-w-[70px] py-3 rounded-xl border transition-all duration-300 active:scale-95
+                    ${isSelected 
+                      ? "bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-105" 
+                      : "bg-gray-800/50 border-gray-700 text-gray-400 hover:border-primary/50 hover:text-gray-200"}`}
+                >
+                  <span className="text-xs uppercase font-medium opacity-70">
+                    {dateObj.toLocaleDateString("en-US", { weekday: "short" })}
+                  </span>
+                  <span className="text-xl font-bold">
+                    {dateObj.getDate()}
+                  </span>
+                  <span className="text-xs font-medium">
+                    {dateObj.toLocaleDateString("en-US", { month: "short" })}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
 
-        const q = new URLSearchParams();
-        q.set('date', selected);
-        if (theaterId) q.set('theater', theaterId);
-        navigate(`/movies/${id}/theaters?${q.toString()}`);
-
-        // navigate(`/movies/${id}/theaters?date=${encodeURIComponent(selected)}`) // chatgpt - added
-        scrollTo(0, 0)
-    }
-
-    return (
-        <div id='dateSelect' className='pt-30'>
-            <div className='flex flex-col md:flex-row items-center justify-between gap-10 relative p-8 bg-primary/10 border border-primary/20 rounded-lg'>
-                <BlurCircle top='-100px' left='-100px' />
-                <BlurCircle top='-100px' right='0px' />
-
-                <div>
-                    <p className='text-lg font-semibold'> Choose Date</p>
-                    <div className='flex items-center gap-6 text-sm mt-5'>
-                        <ChevronLeftIcon width={28} />
-                        <span className='grid grid-cols-3 md:flex flex-wrap md:max-w-lg gap-4'>
-                            {Object.keys(dateTime).map((date) => (
-                                <button onClick={() => setSelected(date)} key={date} className={`flex flex-col items-center justify-center h-14 w-14 aspect-square rounded cursor-pointer ${selected === date ? "bg-primary text-white" : "border border-primary/70"}`}>
-                                    <span>{new Date(date).getDate()}</span>
-                                    <span>{new Date(date).toLocaleDateString("en-US", { month: "short" })}</span>
-                                </button>
-                            ))}
-                        </span>
-                        <ChevronRightIcon width={28} />
-                    </div>
-                </div>
-                <button onClick={onBookHandler} className='bg-primary text-white px-8 py-2 mt-6 rounded hover:bg-primary/90 transition-all cursor-pointer'>Book Now</button>
-            </div>
+          <button className="p-2 hover:bg-gray-700 rounded-full transition text-gray-400 hover:text-white">
+            <ChevronRightIcon className="w-6 h-6" />
+          </button>
         </div>
-    )
-}
+      </div>
+    </div>
+  );
+};
 
 export default DateSelect

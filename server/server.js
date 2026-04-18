@@ -14,10 +14,8 @@ import adminRouter from './routes/adminRoutes.js';
 import favoriteRoutes from './routes/favoriteRoutes.js';
 import movieRouter from './routes/movieRoutes.js';
 
-import { stripeWebhooks } from './controllers/stripeWebhooks.js';
 import startBookingCleanupJob from './utils/bookingCleaner.js';
 import paymentRoutes from "./routes/paymentRoutes.js";
-import { verifyPayment } from './controllers/bookingController.js';
 import reportRoutes from './routes/reportRoutes.js';
 
 
@@ -26,15 +24,7 @@ const app = express();
 // app.set("trust proxy", 1); //---------- aa hali hancha pn me karela che 
 const PORT = process.env.PORT || 3000; // 3000
 
-// ------------------------------------------
-// 1️⃣ STRIPE WEBHOOK ROUTE (Must Be FIRST!)
-// ------------------------------------------
-// Must use express.raw() BEFORE json middleware
-app.post(
-  "/api/payment/webhook",
-  express.raw({ type: "*/*" }),
-  stripeWebhooks
-);
+
 
 // ------------------------------------------
 // 2️⃣ NORMAL MIDDLEWARE

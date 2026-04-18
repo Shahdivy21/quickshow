@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
@@ -12,6 +12,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,7 +30,9 @@ export default function Login() {
         } else if (!user.isAccountVerified) {
           navigate("/"); // Redirect to verify page
         } else {
-          navigate("/"); // Normal verified user
+          // ✅ Redirect back to where they came from
+          const from = location.state?.from || "/";
+          navigate(from, { replace: true });
         }
       } else {
         setError(res?.message || "Login failed");

@@ -13,6 +13,10 @@
   scrollbar-color: #787777 #1e1e1e;
   }
 
+:root {
+  color-scheme: dark;
+}
+
 body{
   color:white;
   background-color: #09090B;
@@ -29,5 +33,59 @@ input::-webkit-inner-spin-button{
 }
 
 ::-webkit-calendar-picker-indicator {
-  filter: invert(1);
+  filter: brightness(0) invert(1) opacity(0.5);
+  cursor: pointer;
+  transition: filter 0.2s;
 }
+
+::-webkit-calendar-picker-indicator:hover {
+  filter: brightness(0) invert(1) opacity(0.85);
+}
+
+/* ── Date input: placeholder light grey, value white ── */
+input[type="date"] {
+  color: white;
+  color-scheme: dark;
+}
+
+input[type="date"]:not([value]),
+input[type="date"][value=""] {
+  color: #9ca3af; /* light grey — same as Tailwind gray-400 */
+}
+
+/* ── Native date picker calendar popup — dark theme ── */
+::-webkit-datetime-edit {
+  color: white;
+}
+
+::-webkit-datetime-edit-fields-wrapper {
+  color: white;
+}
+
+::-webkit-datetime-edit-text {
+  color: #9ca3af;
+}
+
+::-webkit-datetime-edit-day-field,
+::-webkit-datetime-edit-month-field,
+::-webkit-datetime-edit-year-field {
+  color: white;
+}
+
+::-webkit-datetime-edit-day-field:focus,
+::-webkit-datetime-edit-month-field:focus,
+::-webkit-datetime-edit-year-field:focus {
+  background-color: #F84565;
+  color: white;
+  border-radius: 2px;
+}
+
+/* empty / placeholder state → grey */
+input[type="date"][value=""]::-webkit-datetime-edit-day-field,
+input[type="date"][value=""]::-webkit-datetime-edit-month-field,
+input[type="date"][value=""]::-webkit-datetime-edit-year-field,
+input[type="date"]:not([value])::-webkit-datetime-edit-day-field,
+input[type="date"]:not([value])::-webkit-datetime-edit-month-field,
+input[type="date"]:not([value])::-webkit-datetime-edit-year-field {
+  color: #9ca3af;
+}
