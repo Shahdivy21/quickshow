@@ -28,7 +28,7 @@ const MovieCard = ({ movie }) => {
   };
 
   return (
-    <div className="flex flex-col justify-between p-3 bg-gray-800 rounded-xl hover:translate-y-1 transition duration-300 w-[90%] max-w-[220px] mx-auto sm:w-full sm:max-w-[200px]">
+    <div className="flex flex-col justify-between p-2 bg-gray-800 rounded-xl hover:translate-y-1 transition duration-300 w-full max-w-full">
       <img
         onClick={goToMovie}
         src={ image_base_url+movie.backdrop_path}

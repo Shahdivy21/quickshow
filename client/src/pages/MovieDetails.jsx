@@ -40,8 +40,8 @@ const MovieDetails = () => {
       const res = await axios.get("/api/favorites", { withCredentials: true });
       if (res.data.success && Array.isArray(res.data.favorites)) {
         const favs = res.data.favorites;
-        const movieId = String(show.movie._id);
-        const isFav = favs.some(f => (f.movieId || f._id || f.id || f) === movieId);
+        const movieId = String(show.movie.id || show.movie._id);
+        const isFav = favs.some(f => String(f.movieId || f._id || f.id || f) === movieId);
         setIsFavorited(isFav);
       }
     } catch (err) {
@@ -52,7 +52,7 @@ const MovieDetails = () => {
   // Toggle favorite
   const handleFavoriteClick = async () => {
     if (!show?.movie) return toast.error("Movie data not found");
-    const movieId = show.movie._id;
+    const movieId = show.movie.id || show.movie._id;
     try {
       const { data } = await axios.post("/api/favorites/toggle", {
         movieId,
@@ -84,7 +84,7 @@ const MovieDetails = () => {
   const handleWatchTrailer = async () => {
     setTrailerLoading(true);
     try {
-      const { data } = await axios.get(`/api/shows/movie/${show.movie._id}/trailer`);
+      const { data } = await axios.get(`/api/shows/movie/${show.movie.id || show.movie._id}/trailer`);
       if (data.success) {
         setTrailerKey(data.trailerKey);
         setShowModal(true);

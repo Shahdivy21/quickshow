@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { assets } from "../assets/assets";
 
 export default function VerifyAccount() {
   const [searchParams] = useSearchParams();
@@ -37,8 +38,9 @@ export default function VerifyAccount() {
   }, [searchParams, navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black px-4">
-      <div className="w-full max-w-sm bg-[#121212] border border-gray-800 rounded-xl p-8 shadow-xl space-y-6 text-center">
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden px-4">
+
+      <div className="w-full max-w-sm relative z-10 bg-white/[0.03] border border-white/10 backdrop-blur-md rounded-xl p-8 shadow-2xl space-y-6 text-center">
         <h1 className="text-2xl font-bold text-white tracking-tight">
           Account Verification
         </h1>

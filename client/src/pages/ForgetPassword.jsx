@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-hot-toast";
+import { assets } from "../assets/assets";
 
 export default function ForgotPassword() {
   const [step, setStep] = useState(1); // Step 1: email, Step 2: OTP + new password
@@ -79,68 +80,17 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen flex bg-[#09090B]">
-      {/* ── LEFT PANEL ── */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden flex-col items-center justify-center">
-        {/* Gradient BG */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#09090B] via-[#1a0a10] to-[#09090B]" />
+    <div className="min-h-screen flex relative overflow-hidden">
 
-        {/* Glow blobs */}
-        <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-[#F84565] opacity-10 rounded-full blur-[100px] animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-56 h-56 bg-[#F84565] opacity-10 rounded-full blur-[80px] animate-pulse" style={{ animationDelay: "1.5s" }} />
 
-        {/* Decorative film strip lines */}
-        <div className="absolute left-0 top-0 bottom-0 w-12 flex flex-col justify-around opacity-10">
-          {Array.from({ length: 14 }).map((_, i) => (
-            <div key={i} className="w-8 h-5 mx-auto border-2 border-[#F84565] rounded-sm" />
-          ))}
-        </div>
-        <div className="absolute right-0 top-0 bottom-0 w-12 flex flex-col justify-around opacity-10">
-          {Array.from({ length: 14 }).map((_, i) => (
-            <div key={i} className="w-8 h-5 mx-auto border-2 border-[#F84565] rounded-sm" />
-          ))}
-        </div>
-
-        {/* Content */}
-        <div className="relative z-10 flex flex-col items-center text-center px-12">
-          {/* Logo */}
-          <div className="flex items-center mb-10">
-            <span className="text-[#F84565] text-4xl font-black">Q</span>
-            <span className="text-white text-3xl font-bold tracking-tight">uickShow</span>
-          </div>
-
-          {/* Tagline */}
-          <h2 className="text-white text-4xl font-bold leading-tight mb-4">
-            Reset Password,<br />
-            <span className="text-[#F84565]">Secure Account</span>
-          </h2>
-          <p className="text-gray-400 text-base leading-relaxed max-w-xs">
-            Lost your access? Follow the steps to get back to booking your favorite movies.
-          </p>
-
-          {/* Feature pills */}
-          <div className="mt-10 flex flex-wrap gap-3 justify-center">
-             <span className="px-3 py-1.5 rounded-full text-xs font-medium border border-[#F84565]/30 text-[#F84565] bg-[#F84565]/10 backdrop-blur-sm">
-                📧 Fast OTP verification
-             </span>
-             <span className="px-3 py-1.5 rounded-full text-xs font-medium border border-[#F84565]/30 text-[#F84565] bg-[#F84565]/10 backdrop-blur-sm">
-                🔒 Safe & encrypted
-             </span>
-          </div>
-        </div>
-
-        {/* Bottom gradient fade */}
-        <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#09090B] to-transparent" />
-      </div>
-
-      {/* ── RIGHT PANEL ── */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center px-6 py-12 relative">
+      {/* ── CENTRAL FORM PANEL ── */}
+      <div className="w-full flex items-center justify-center px-6 py-12 relative">
         {/* Subtle top-right glow */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-[#F84565] opacity-5 rounded-full blur-[120px]" />
 
         <div className="w-full max-w-[360px] relative z-10">
-          {/* Mobile logo */}
-          <div className="lg:hidden flex items-center mb-8 justify-center">
+          {/* Logo */}
+          <div className="flex items-center mb-8 justify-center">
             <span className="text-[#F84565] text-3xl font-black">Q</span>
             <span className="text-white text-2xl font-bold">uickShow</span>
           </div>

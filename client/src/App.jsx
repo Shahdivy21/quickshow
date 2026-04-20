@@ -3,6 +3,7 @@ import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import ScrollToTop from "./components/ScrollToTop";
+import GlobalBackground from "./components/GlobalBackground";
 import { Toaster } from "react-hot-toast";
 import { useAuth } from "./context/AuthContext.jsx";
 
@@ -55,6 +56,7 @@ const App = () => {
 
   return (
     <>
+      <GlobalBackground />
       <Toaster />
       <ScrollToTop />
       {!isAdminRoute && <Navbar />}

@@ -14,7 +14,7 @@ const Movies = () => {
       <BlurCircle top="150px" left="0px" />
       <BlurCircle bottom="150px" right="0px" />
       <h1 className="text-lg font-medium my-4 text-white">Now Showing</h1>
-      <div className="grid gap-3 auto-rows-fr grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
+      <div className="grid gap-2 auto-rows-fr grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
         {shows.map((movie) => (
           <MovieCard movie={movie} key={movie._id} />
         ))}
