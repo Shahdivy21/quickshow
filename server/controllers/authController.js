@@ -268,10 +268,24 @@ export const sendResetOtp = async (req, res) => {
       to: user.email,
       subject: "🔑 Reset your QuickShow password",
       html: `
-        <h2>Hello ${user.name},</h2>
-        <p>Your OTP for resetting password is:</p>
-        <h1 style="color:#E74C3C;">${otp}</h1>
-        <p>This OTP is valid for 15 minutes. If you didn’t request this, ignore this email.</p>
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden;">
+          <div style="background-color: #F84565; color: white; padding: 20px; text-align: center;">
+            <h2 style="margin: 0; font-size: 24px;">🔑 Password Reset OTP</h2>
+          </div>
+          <div style="padding: 30px;">
+            <p style="font-size: 16px;">Hello <strong>${user.name}</strong>,</p>
+            <p style="font-size: 16px;">We received a request to reset your QuickShow account password. Please use the following One-Time Password (OTP) to proceed:</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #F84565; background-color: #fce7eb; padding: 15px 25px; border-radius: 8px; border: 1px dashed #F84565;">${otp}</span>
+            </div>
+            <p style="font-size: 14px; color: #555;">This OTP is valid for <strong>15 minutes</strong>.</p>
+            <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;" />
+            <p style="font-size: 12px; color: #888;">If you did not request a password reset, you can safely ignore this email. Your password will remain unchanged.</p>
+          </div>
+          <div style="background-color: #f3f4f6; color: #555; padding: 15px; text-align: center; font-size: 12px;">
+            QuickShow &copy; ${new Date().getFullYear()}. All rights reserved.
+          </div>
+        </div>
       `,
     });
 

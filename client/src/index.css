@@ -22,6 +22,11 @@ body{
   background-color: #09090B;
 }
 
+/* Fix Razorpay iframe getting opaque white background */
+iframe {
+  color-scheme: light !important;
+}
+
 .no-scrollbar{
   scrollbar-width: none;
 }
