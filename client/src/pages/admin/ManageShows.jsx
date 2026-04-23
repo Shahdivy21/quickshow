@@ -104,7 +104,7 @@ const ManageShows = () => {
   const [isScheduling, setIsScheduling]       = useState(false);
   const [scheduleExistingShows, setScheduleExistingShows] = useState([]); // for duplicate detection
 
-  const PRESET_SLOTS = ["10:00", "10:30", "13:00", "13:30", "16:00", "16:30", "19:00", "20:00", "20:30", "23:00"];
+  const [allSlots, setAllSlots] = useState(["10:00", "10:30", "13:00", "13:30", "16:00", "16:30", "19:00", "20:00", "20:30", "23:00"]);
 
   /** Build a date string "YYYY-MM-DD" from a Date object using local time */
   const toDateStr = (d) =>
@@ -179,10 +179,24 @@ const ManageShows = () => {
       prev.includes(slot) ? prev.filter((s) => s !== slot) : [...prev, slot].sort()
     );
 
+  const removeSlotFromGrid = (slot) => {
+    setAllSlots((prev) => prev.filter((s) => s !== slot));
+    setScheduleSlots((prev) => prev.filter((s) => s !== slot));
+  };
+
   const addCustomSlot = () => {
     if (!customSlot) return;
-    if (scheduleSlots.includes(customSlot)) return toast.error("Slot already added");
-    setScheduleSlots((prev) => [...prev, customSlot].sort());
+    
+    // Add to selected slots
+    if (!scheduleSlots.includes(customSlot)) {
+      setScheduleSlots((prev) => [...prev, customSlot].sort());
+    }
+
+    // Add to the grid buttons
+    if (!allSlots.includes(customSlot)) {
+      setAllSlots((prev) => [...prev, customSlot].sort());
+    }
+    
     setCustomSlot("");
   };
 
@@ -772,18 +786,26 @@ const ManageShows = () => {
                   <Clock className="w-3 h-3 inline mr-1" /> Time Slots Per Day
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  {PRESET_SLOTS.map((slot) => (
-                    <button
-                      key={slot}
-                      onClick={() => toggleSlot(slot)}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition border ${
-                        scheduleSlots.includes(slot)
-                          ? "bg-green-600 border-green-500 text-white shadow-sm shadow-green-500/30"
-                          : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600"
-                      }`}
-                    >
-                      {slot}
-                    </button>
+                  {allSlots.map((slot) => (
+                    <div key={slot} className="relative group/slot">
+                      <button
+                        onClick={() => toggleSlot(slot)}
+                        className={`w-full px-3 py-1.5 rounded-lg text-sm font-medium transition border ${
+                          scheduleSlots.includes(slot)
+                            ? "bg-green-600 border-green-500 text-white shadow-sm shadow-green-500/30"
+                            : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600"
+                        }`}
+                      >
+                        {slot}
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); removeSlotFromGrid(slot); }}
+                        className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] opacity-0 group-hover/slot:opacity-100 transition-opacity shadow-lg hover:bg-red-600 z-10"
+                        title="Remove from grid"
+                      >
+                        ×
+                      </button>
+                    </div>
                   ))}
                 </div>
                 {/* Custom slot input */}

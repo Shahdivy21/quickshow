@@ -35,6 +35,8 @@ export const createBooking = async (req, res) => {
     const booking = await Booking.create({
       user: req.user._id,
       show: showId,
+      movieTitle: showData.movie?.title,
+      moviePoster: showData.movie?.posterPath,
       theater,
       date,
       showTime,
@@ -190,19 +192,25 @@ export const getAllBookings = async (req, res) => {
       if (!grouped[key]) {
         grouped[key] = {
           user: b.user,
-          movie: b.show.movie,       // FIXED ✔
-          theater: b.show.theater,   // FIXED ✔
-          showTime: b.show.showDateTime,
+          movie: b.show?.movie,       // FIXED ✔
+          movieTitle: b.movieTitle,   // Fallback title
+          moviePoster: b.moviePoster, // Fallback poster
+          theater: b.theater || b.show?.theater,   // FIXED ✔
+          showTime: b.show?.showDateTime || b.showTime,
           seats: [...b.bookedSeats],
           totalAmount: b.amount,
-          isPaid: b.isPaid
+          isPaid: b.isPaid,
+          status: b.status,
+          bookings: [b]
         };
       } else {
         grouped[key].seats.push(...b.bookedSeats);
+        grouped[key].bookings.push(b);
 
         if (b.isPaid) grouped[key].totalAmount += b.amount;
 
         if (b.isPaid) grouped[key].isPaid = true;
+        if (b.status === "cancelled") grouped[key].status = "cancelled";
       }
     });
 

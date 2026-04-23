@@ -73,7 +73,7 @@ const ListBookings = () => {
       if (searchQ) {
         const q = searchQ.toLowerCase();
         const matchUser  = (b.user?.name || "").toLowerCase().includes(q) || (b.user?.email || "").toLowerCase().includes(q);
-        const matchMovie = (b.show?.movie?.title || "").toLowerCase().includes(q);
+        const matchMovie = (b.show?.movie?.title || b.movieTitle || "").toLowerCase().includes(q);
         if (!matchUser && !matchMovie) return false;
       }
 
@@ -243,7 +243,7 @@ const ListBookings = () => {
                     <div key={index} className="p-3 mb-3 bg-black/30 rounded-md border border-gray-700">
                       <div className="flex justify-between items-start">
                         <div>
-                          <h3 className="text-sm font-bold">{group.movie?.title || "Unknown Movie"}</h3>
+                          <h3 className="text-sm font-bold">{group.movie?.title || group.movieTitle || "Unknown Movie"}</h3>
                           <p className="text-xs text-gray-400">{group.theater}</p>
                           <p className="text-xs text-gray-300 mt-1">{formatDateTime(group.showTime)}</p>
                           <p className="text-xs text-gray-300">Seats: {group.seats.join(" · ")}</p>

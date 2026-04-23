@@ -13,6 +13,8 @@ const bookingSchema = new mongoose.Schema(
     paymentLink: { type: String },
     paymentId: { type: String }, // Store Razorpay Payment ID for refunds
     status: { type: String, default: "booked", enum: ["booked", "cancelled"] },
+    movieTitle: { type: String }, // Preserve title if show is deleted
+    moviePoster: { type: String }, // Preserve poster if show is deleted
   },
   { timestamps: true }
 );
