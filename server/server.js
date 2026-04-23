@@ -36,6 +36,7 @@ app.use(
   cors({
     origin: "http://localhost:5173",
     credentials: true,
+    exposedHeaders: ["Content-Disposition"]
   })
 ); // me hadi kari che cors ni jagya pr
 // const allowedOrigins = [

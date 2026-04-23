@@ -545,18 +545,27 @@ const router = express.Router();
    PDFMAKE VFS / FONT FIX (works on Railway & Linux)
 ---------------------------------------------------- */
 pdfFonts.pdfMake = pdfFonts.pdfMake || {};
-pdfFonts.pdfMake.vfs = pdfFonts.pdfMake.vfs || pdfFonts.vfs;
+const vfs = pdfFonts?.pdfMake?.vfs || pdfFonts?.vfs || pdfFonts;
 
-// Use built-in Roboto references and attach the vfs to the printer
-const printer = new PdfPrinter({
-  Roboto: {
-    normal: "Roboto-Regular.ttf",
-    bold: "Roboto-Medium.ttf",
-    italics: "Roboto-Italic.ttf",
-    bolditalics: "Roboto-MediumItalic.ttf",
-  },
-});
-printer.vfs = pdfFonts.pdfMake.vfs;
+const getFontsMapping = () => {
+  if (vfs) {
+    const load = (n) => {
+      const file = vfs[n] || vfs[n.replace(".ttf", "")];
+      return file ? Buffer.from(file, "base64") : null;
+    };
+    return {
+      Roboto: {
+        normal: load("Roboto-Regular.ttf"),
+        bold: load("Roboto-Medium.ttf") || load("Roboto-Bold.ttf"),
+        italics: load("Roboto-Italic.ttf"),
+        bolditalics: load("Roboto-MediumItalic.ttf"),
+      },
+    };
+  }
+  return {};
+};
+
+const printer = new PdfPrinter(getFontsMapping());
 
 /* -----------------------------
    Logo handling (optional)
@@ -761,6 +770,7 @@ router.get("/bookings/excel", async (req, res) => {
       { header: "Amount", key: "amount", width: 12 },
       { header: "Seats", key: "seats", width: 30 },
       { header: "Created", key: "created", width: 18 },
+      { header: "Status", key: "status", width: 12 },
     ];
 
     bookings.forEach((b, i) =>
@@ -775,6 +785,7 @@ router.get("/bookings/excel", async (req, res) => {
         amount: b.amount != null ? b.amount : "N/A",
         seats: Array.isArray(b.bookedSeats) ? b.bookedSeats.join(", ") : (b.bookedSeats || ""),
         created: b.createdAt ? moment(b.createdAt).format("DD-MM-YYYY") : "N/A",
+        status: b.status === "cancelled" ? "CANCELLED" : b.isPaid ? "PAID" : "PENDING",
       })
     );
 
@@ -817,6 +828,7 @@ router.get("/bookings/pdf", async (req, res) => {
         { text: "Show Time", style: "th", alignment: "center" },
         { text: "Amount", style: "th", alignment: "right" },
         { text: "Seats", style: "th" },
+        { text: "Status", style: "th", alignment: "center" },
       ],
     ];
 
@@ -833,6 +845,7 @@ router.get("/bookings/pdf", async (req, res) => {
         { text: fs, alignment: "center" },
         { text: b.amount != null ? `₹${b.amount}` : "N/A", alignment: "right" },
         { text: Array.isArray(b.bookedSeats) ? b.bookedSeats.join(", ") : (b.bookedSeats || "N/A"), noWrap: false },
+        { text: b.status === "cancelled" ? "CANCELLED" : b.isPaid ? "PAID" : "PENDING", alignment: "center" },
       ]);
     });
 
@@ -860,7 +873,7 @@ router.get("/bookings/pdf", async (req, res) => {
         {
           table: {
             headerRows: 1,
-            widths: tableWidthsAuto(["sr", "user", "email", "movie", "theater", "date", "showtime", "amount", "seats"]),
+            widths: tableWidthsAuto(["sr", "user", "email", "movie", "theater", "date", "showtime", "amount", "seats", "status"]),
             body,
           },
           layout: {
@@ -913,16 +926,33 @@ router.get("/movies/revenue/excel", async (req, res) => {
           amount: { $ifNull: ["$amount", 0] },
           seatsCount: { $size: { $ifNull: ["$bookedSeats", []] } },
           showId: "$showDoc._id",
-          showDate: "$showDoc.date",
+          showDate: "$showDoc.showDateTime",
+          status: "$status",
+          isPaid: "$isPaid",
         },
       },
       {
         $group: {
           _id: "$movieId",
           title: { $first: "$title" },
-          totalBookings: { $sum: 1 },
-          totalSeats: { $sum: "$seatsCount" },
-          totalRevenue: { $sum: "$amount" },
+          confirmedBookings: {
+            $sum: { $cond: [ { $and: [ { $eq: ["$isPaid", true] }, { $ne: ["$status", "cancelled"] } ] }, 1, 0 ] }
+          },
+          cancelledBookings: {
+            $sum: { $cond: [ { $or: [ { $eq: ["$status", "cancelled"] }, { $eq: ["$isPaid", false] } ] }, 1, 0 ] }
+          },
+          confirmedSeats: {
+            $sum: { $cond: [ { $and: [ { $eq: ["$isPaid", true] }, { $ne: ["$status", "cancelled"] } ] }, "$seatsCount", 0 ] }
+          },
+          cancelledSeats: {
+            $sum: { $cond: [ { $or: [ { $eq: ["$status", "cancelled"] }, { $eq: ["$isPaid", false] } ] }, "$seatsCount", 0 ] }
+          },
+          confirmedRevenue: {
+            $sum: { $cond: [ { $and: [ { $eq: ["$isPaid", true] }, { $ne: ["$status", "cancelled"] } ] }, "$amount", 0 ] }
+          },
+          cancelledRevenue: {
+            $sum: { $cond: [ { $or: [ { $eq: ["$status", "cancelled"] }, { $eq: ["$isPaid", false] } ] }, "$amount", 0 ] }
+          },
           shows: { $addToSet: "$showId" },
           lastShowDate: { $max: "$showDate" },
         },
@@ -930,20 +960,23 @@ router.get("/movies/revenue/excel", async (req, res) => {
       {
         $project: {
           title: 1,
-          totalBookings: 1,
-          totalSeats: 1,
-          totalRevenue: 1,
+          confirmedBookings: 1,
+          cancelledBookings: 1,
+          confirmedSeats: 1,
+          cancelledSeats: 1,
+          confirmedRevenue: 1,
+          cancelledRevenue: 1,
           avgRevenuePerShow: {
             $cond: [
               { $gt: [{ $size: "$shows" }, 0] },
-              { $divide: ["$totalRevenue", { $size: "$shows" }] },
+              { $divide: ["$confirmedRevenue", { $size: "$shows" }] },
               0,
             ],
           },
           lastShowDate: 1,
         },
       },
-      { $sort: { totalRevenue: -1 } },
+      { $sort: { confirmedRevenue: -1 } },
     ];
 
     const results = await Booking.aggregate(pipeline);
@@ -953,10 +986,13 @@ router.get("/movies/revenue/excel", async (req, res) => {
     sh.columns = [
       { header: "Sr", key: "sr", width: 6 },
       { header: "Movie", key: "movie", width: 40 },
-      { header: "Total Bookings", key: "totalBookings", width: 16 },
-      { header: "Total Seats", key: "totalSeats", width: 12 },
-      { header: "Total Revenue (₹)", key: "totalRevenue", width: 18 },
-      { header: "Avg Revenue / Show (₹)", key: "avgRevenue", width: 18 },
+      { header: "Conf. Bookings", key: "confirmedBookings", width: 18 },
+      { header: "Canc. Bookings", key: "cancelledBookings", width: 18 },
+      { header: "Conf. Seats", key: "confirmedSeats", width: 16 },
+      { header: "Canc. Seats", key: "cancelledSeats", width: 16 },
+      { header: "Conf. Revenue (₹)", key: "confirmedRevenue", width: 20 },
+      { header: "Canc/Pend. Revenue (₹)", key: "cancelledRevenue", width: 25 },
+      { header: "Avg / Show (₹)", key: "avgRevenue", width: 16 },
       { header: "Last Show Date", key: "lastShow", width: 16 },
     ];
 
@@ -964,9 +1000,12 @@ router.get("/movies/revenue/excel", async (req, res) => {
       sh.addRow({
         sr: i + 1,
         movie: r.title || "N/A",
-        totalBookings: r.totalBookings || 0,
-        totalSeats: r.totalSeats || 0,
-        totalRevenue: r.totalRevenue != null ? r.totalRevenue : 0,
+        confirmedBookings: r.confirmedBookings || 0,
+        cancelledBookings: r.cancelledBookings || 0,
+        confirmedSeats: r.confirmedSeats || 0,
+        cancelledSeats: r.cancelledSeats || 0,
+        confirmedRevenue: r.confirmedRevenue != null ? r.confirmedRevenue : 0,
+        cancelledRevenue: r.cancelledRevenue != null ? r.cancelledRevenue : 0,
         avgRevenue: r.avgRevenuePerShow != null ? Number(r.avgRevenuePerShow).toFixed(2) : "0.00",
         lastShow: r.lastShowDate ? moment(r.lastShowDate).format("DD-MM-YYYY") : "N/A",
       })
@@ -1009,16 +1048,33 @@ router.get("/movies/revenue/pdf", async (req, res) => {
           amount: { $ifNull: ["$amount", 0] },
           seatsCount: { $size: { $ifNull: ["$bookedSeats", []] } },
           showId: "$showDoc._id",
-          showDate: "$showDoc.date",
+          showDate: "$showDoc.showDateTime",
+          status: "$status",
+          isPaid: "$isPaid",
         },
       },
       {
         $group: {
           _id: "$movieId",
           title: { $first: "$title" },
-          totalBookings: { $sum: 1 },
-          totalSeats: { $sum: "$seatsCount" },
-          totalRevenue: { $sum: "$amount" },
+          confirmedBookings: {
+            $sum: { $cond: [ { $and: [ { $eq: ["$isPaid", true] }, { $ne: ["$status", "cancelled"] } ] }, 1, 0 ] }
+          },
+          cancelledBookings: {
+            $sum: { $cond: [ { $or: [ { $eq: ["$status", "cancelled"] }, { $eq: ["$isPaid", false] } ] }, 1, 0 ] }
+          },
+          confirmedSeats: {
+            $sum: { $cond: [ { $and: [ { $eq: ["$isPaid", true] }, { $ne: ["$status", "cancelled"] } ] }, "$seatsCount", 0 ] }
+          },
+          cancelledSeats: {
+            $sum: { $cond: [ { $or: [ { $eq: ["$status", "cancelled"] }, { $eq: ["$isPaid", false] } ] }, "$seatsCount", 0 ] }
+          },
+          confirmedRevenue: {
+            $sum: { $cond: [ { $and: [ { $eq: ["$isPaid", true] }, { $ne: ["$status", "cancelled"] } ] }, "$amount", 0 ] }
+          },
+          cancelledRevenue: {
+            $sum: { $cond: [ { $or: [ { $eq: ["$status", "cancelled"] }, { $eq: ["$isPaid", false] } ] }, "$amount", 0 ] }
+          },
           shows: { $addToSet: "$showId" },
           lastShowDate: { $max: "$showDate" },
         },
@@ -1026,20 +1082,23 @@ router.get("/movies/revenue/pdf", async (req, res) => {
       {
         $project: {
           title: 1,
-          totalBookings: 1,
-          totalSeats: 1,
-          totalRevenue: 1,
+          confirmedBookings: 1,
+          cancelledBookings: 1,
+          confirmedSeats: 1,
+          cancelledSeats: 1,
+          confirmedRevenue: 1,
+          cancelledRevenue: 1,
           avgRevenuePerShow: {
             $cond: [
               { $gt: [{ $size: "$shows" }, 0] },
-              { $divide: ["$totalRevenue", { $size: "$shows" }] },
+              { $divide: ["$confirmedRevenue", { $size: "$shows" }] },
               0,
             ],
           },
           lastShowDate: 1,
         },
       },
-      { $sort: { totalRevenue: -1 } },
+      { $sort: { confirmedRevenue: -1 } },
     ];
 
     const results = await Booking.aggregate(pipeline);
@@ -1048,10 +1107,13 @@ router.get("/movies/revenue/pdf", async (req, res) => {
       [
         { text: "Sr", style: "th", alignment: "center" },
         { text: "Movie", style: "th" },
-        { text: "Total Bookings", style: "th", alignment: "center" },
-        { text: "Total Seats", style: "th", alignment: "center" },
-        { text: "Total Revenue (₹)", style: "th", alignment: "right" },
-        { text: "Avg / Show (₹)", style: "th", alignment: "right" },
+        { text: "Conf.\nBkng", style: "th", alignment: "center" },
+        { text: "Canc.\nBkng", style: "th", alignment: "center" },
+        { text: "Conf.\nSeats", style: "th", alignment: "center" },
+        { text: "Canc.\nSeats", style: "th", alignment: "center" },
+        { text: "Conf.\nRev (₹)", style: "th", alignment: "right" },
+        { text: "Canc.\nRev (₹)", style: "th", alignment: "right" },
+        { text: "Avg/Show\n(₹)", style: "th", alignment: "right" },
         { text: "Last Show", style: "th", alignment: "center" },
       ],
     ];
@@ -1060,42 +1122,46 @@ router.get("/movies/revenue/pdf", async (req, res) => {
       body.push([
         { text: i + 1, alignment: "center" },
         { text: r.title || "N/A", noWrap: false },
-        { text: r.totalBookings != null ? r.totalBookings : 0, alignment: "center" },
-        { text: r.totalSeats != null ? r.totalSeats : 0, alignment: "center" },
-        { text: r.totalRevenue != null ? `₹${r.totalRevenue}` : "₹0", alignment: "right" },
+        { text: r.confirmedBookings != null ? r.confirmedBookings : 0, alignment: "center" },
+        { text: r.cancelledBookings != null ? r.cancelledBookings : 0, alignment: "center" },
+        { text: r.confirmedSeats != null ? r.confirmedSeats : 0, alignment: "center" },
+        { text: r.cancelledSeats != null ? r.cancelledSeats : 0, alignment: "center" },
+        { text: r.confirmedRevenue != null ? `₹${r.confirmedRevenue}` : "₹0", alignment: "right" },
+        { text: r.cancelledRevenue != null ? `₹${r.cancelledRevenue}` : "₹0", alignment: "right" },
         { text: r.avgRevenuePerShow != null ? `₹${Number(r.avgRevenuePerShow).toFixed(2)}` : "₹0.00", alignment: "right" },
         { text: r.lastShowDate ? moment(r.lastShowDate).format("DD-MM-YYYY") : "N/A", alignment: "center" },
       ])
     );
 
-    const totalRevenue = results.reduce((s, r) => s + (r.totalRevenue || 0), 0);
+    const totalConfirmedRevenue = results.reduce((s, r) => s + (r.confirmedRevenue || 0), 0);
+    const totalCancelledRevenue = results.reduce((s, r) => s + (r.cancelledRevenue || 0), 0);
 
     const docDef = {
       pageSize: "A4",
-      pageOrientation: "portrait",
-      pageMargins: [28, 110, 28, 60],
+      pageOrientation: "landscape",
+      pageMargins: [18, 110, 18, 60],
       images: logoBase64 ? { logo: logoBase64 } : {},
       header: (cp, pc) => ({
         columns: [
-          logoBase64 ? { image: "logo", width: 80, margin: [28, 10, 0, 10] } : { text: "", width: 80 },
+          logoBase64 ? { image: "logo", width: 80, margin: [18, 10, 0, 10] } : { text: "", width: 80 },
           { text: "QUICKSHOW — Movie Revenue", style: "headerTitle", alignment: "center" },
-          { text: `Page ${cp} / ${pc}`, alignment: "right", margin: [0, 10, 28, 0] },
+          { text: `Page ${cp} / ${pc}`, alignment: "right", margin: [0, 10, 18, 0] },
         ],
       }),
       footer: (cp, pc) => ({
         columns: [
-          { text: `Generated: ${moment().format("DD-MM-YYYY HH:mm")}`, alignment: "left", margin: [28, 0] },
+          { text: `Generated: ${moment().format("DD-MM-YYYY HH:mm")}`, alignment: "left", margin: [18, 0] },
           { text: `QuickShow © ${new Date().getFullYear()}`, alignment: "center" },
-          { text: `Page ${cp} of ${pc}`, alignment: "right", margin: [0, 0, 28, 0] },
+          { text: `Page ${cp} of ${pc}`, alignment: "right", margin: [0, 0, 18, 0] },
         ],
         margin: [0, 8, 0, 0],
       }),
       content: [
-        { text: `Summary: Movies: ${results.length}  •  Total Revenue: ₹${totalRevenue.toLocaleString("en-IN")}`, style: "summary", margin: [0, 0, 0, 8] },
+        { text: `Summary: Movies: ${results.length}  •  Total Confirmed Revenue: ₹${totalConfirmedRevenue.toLocaleString("en-IN")}  •  Total Cancelled/Pending: ₹${totalCancelledRevenue.toLocaleString("en-IN")}`, style: "summary", margin: [0, 0, 0, 8] },
         {
           table: {
             headerRows: 1,
-            widths: tableWidthsAuto(["sr", "movie", "totalBookings", "totalSeats", "totalRevenue", "avgRevenue", "lastShow"]),
+            widths: tableWidthsAuto(["sr", "movie", "confb", "cancb", "confs", "cancs", "confr", "cancr", "avgr", "last"]),
             body,
           },
           layout: {
@@ -1114,7 +1180,7 @@ router.get("/movies/revenue/pdf", async (req, res) => {
         summary: { fontSize: 10, color: "#374151" },
         th: { bold: true, color: "white", fillColor: "#b91c1c" },
       },
-      defaultStyle: { font: "Roboto", fontSize: 10 },
+      defaultStyle: { font: "Roboto", fontSize: 9 },
     };
 
     const pdfDoc = printer.createPdfKitDocument(docDef);

@@ -33,7 +33,6 @@ const ManageShows = () => {
   const [bulkEditTheater, setBulkEditTheater] = useState("");
   const [isBulkSaving, setIsBulkSaving]       = useState(false);
   const [isBulkDeleting, setIsBulkDeleting]   = useState(false);
-  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
   const [showInfoPopup, setShowInfoPopup]     = useState(false);
 
   const toggleSelectShow = (showId) =>
@@ -63,7 +62,6 @@ const ManageShows = () => {
       const { data } = await axios.post("/api/shows/bulk-delete", { showIds: [...selectedShowIds] });
       if (data.success) {
         toast.success(`🗑️ ${data.deleted} show${data.deleted !== 1 ? "s" : ""} deleted!`);
-        setBulkDeleteConfirmOpen(false);
         clearSelection();
         fetchGroups();
       } else toast.error(data.message || "Bulk delete failed");
@@ -589,53 +587,18 @@ const ManageShows = () => {
             <Pencil className="w-3.5 h-3.5" /> Edit {selectedShowIds.size} Shows
           </button>
           <button
-            onClick={() => setBulkDeleteConfirmOpen(true)}
+            onClick={confirmBulkDelete}
             disabled={isBulkDeleting}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/30 hover:bg-red-600/60 text-red-300 rounded-lg text-sm transition disabled:opacity-50"
           >
-            <Trash2 className="w-3.5 h-3.5" />
+            {isBulkDeleting
+              ? <div className="w-3.5 h-3.5 border-2 border-red-300/30 border-t-red-300 rounded-full animate-spin" />
+              : <Trash2 className="w-3.5 h-3.5" />}
             Delete {selectedShowIds.size} Shows
           </button>
           <button onClick={clearSelection} className="p-1.5 hover:bg-gray-700 rounded-full transition">
             <X className="w-4 h-4 text-gray-400" />
           </button>
-        </div>
-      )}
-
-      {/* ─────────────── BULK DELETE CONFIRM MODAL ─────────────── */}
-      {bulkDeleteConfirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-red-900/40 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
-            <div className="flex flex-col items-center pt-8 pb-4 px-6">
-              <div className="w-14 h-14 rounded-full bg-red-600/20 flex items-center justify-center mb-4">
-                <Trash2 className="w-7 h-7 text-red-500" />
-              </div>
-              <h2 className="text-xl font-bold text-white mb-1">Delete Selected Shows?</h2>
-              <p className="text-sm text-gray-400 text-center mb-5">
-                Are you sure you want to delete <strong className="text-red-400">{selectedShowIds.size} selected shows</strong>? This action cannot be undone.
-              </p>
-            </div>
-            <div className="flex gap-3 p-5">
-              <button
-                onClick={() => setBulkDeleteConfirmOpen(false)}
-                disabled={isBulkDeleting}
-                className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-medium transition"
-              >
-                Keep Shows
-              </button>
-              <button
-                onClick={confirmBulkDelete}
-                disabled={isBulkDeleting}
-                className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold transition flex items-center justify-center gap-2"
-              >
-                {isBulkDeleting ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <><Trash2 className="w-4 h-4" /> Yes, Delete</>
-                )}
-              </button>
-            </div>
-          </div>
         </div>
       )}
 
@@ -1100,7 +1063,7 @@ const ManageShows = () => {
                 disabled={isDeletingAll}
                 className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-medium transition"
               >
-                Keep Shows
+                Keep
               </button>
               <button
                 onClick={confirmDeleteAll}
@@ -1110,7 +1073,7 @@ const ManageShows = () => {
                 {isDeletingAll ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  <><Trash2 className="w-4 h-4" /> Yes, Delete All</>
+                  <><Trash2 className="w-4 h-4" /> Yes, Delete</>
                 )}
               </button>
             </div>
