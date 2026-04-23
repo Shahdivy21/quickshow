@@ -69,6 +69,17 @@ const MyBookings = () => {
 
       const interval = setInterval(getMyBookings, 10000);
       return () => clearInterval(interval);
+    } else if (!isLoading) {
+      // If user becomes null after loading was done (e.g. logout)
+      setBookings([]);
+    } else {
+      // If user is null on initial load, stop loading after a short delay (or wait for useAuth)
+      // Actually, useAuth 'loading' state handles the main wait.
+      // If we are here and user is still null, it might be an unauthenticated access.
+      const t = setTimeout(() => {
+        if (!user) setIsLoading(false);
+      }, 1000);
+      return () => clearTimeout(t);
     }
   }, [user]);
 
@@ -119,17 +130,17 @@ const MyBookings = () => {
             {/* 🎬 Movie Info */}
             <div className="flex flex-col md:flex-row flex-1">
               <img
-                src={image_base_url + item.show.movie.poster_path}
-                alt={item.show.movie.title}
+                src={item.show?.movie?.poster_path ? image_base_url + item.show.movie.poster_path : "/placeholder.png"}
+                alt={item.show?.movie?.title || "Movie"}
                 className="md:w-44 aspect-video object-cover rounded-md"
               />
               <div className="flex flex-col p-3 flex-1">
-                <p className="text-lg font-semibold">{item.show.movie.title}</p>
+                <p className="text-lg font-semibold">{item.show?.movie?.title || "Unknown Movie"}</p>
                 <p className="text-gray-400 text-sm mt-1">
-                  {timeFormate(item.show.movie.runtime)}
+                  {item.show?.movie?.runtime ? timeFormate(item.show.movie.runtime) : "N/A"}
                 </p>
                 <p className="text-gray-400 text-sm mt-auto">
-                  {dateFormate(item.show.showDateTime)}
+                  {item.show?.showDateTime ? dateFormate(item.show.showDateTime) : (item.showTime ? dateFormate(item.showTime) : "Unknown Date")}
                 </p>
               </div>
             </div>
@@ -160,7 +171,7 @@ const MyBookings = () => {
                 )}
 
                 {item.status !== "cancelled" && item.isPaid && 
-                  new Date(item.show.showDateTime || item.showTime).getTime() > Date.now() && (
+                  new Date(item.show?.showDateTime || item.showTime).getTime() > Date.now() && (
                   <button
                     onClick={() => handleCancelBooking(item)}
                     className="bg-gray-800 hover:bg-red-600 border border-gray-700 hover:border-red-500 text-white px-4 py-2 text-sm rounded-full font-medium transition-all duration-300"
@@ -189,6 +200,14 @@ const MyBookings = () => {
             </div>
           </div>
         ))
+      ) : !user ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+           <div className="text-5xl mb-4">🔐</div>
+           <p className="text-gray-300 text-lg font-medium mb-4">Please login to view your bookings.</p>
+           <Link to="/login" className="bg-primary hover:bg-primary/90 text-white px-8 py-2.5 rounded-full transition-all shadow-lg shadow-primary/20 font-semibold">
+              Login Now
+           </Link>
+        </div>
       ) : (
         <p className="text-gray-400">No bookings found.</p>
       )}
@@ -204,13 +223,13 @@ const MyBookings = () => {
 
             <div className="flex gap-4 p-4 bg-gray-800/50 rounded-xl mb-6">
               <img
-                src={image_base_url + cancellationModal.booking.show.movie.poster_path}
-                alt={cancellationModal.booking.show.movie.title}
+                src={cancellationModal.booking.show?.movie?.poster_path ? image_base_url + cancellationModal.booking.show.movie.poster_path : "/placeholder.png"}
+                alt={cancellationModal.booking.show?.movie?.title || "Movie"}
                 className="w-20 h-28 object-cover rounded-lg shadow-md"
               />
               <div className="flex flex-col justify-center text-sm">
-                <p className="font-bold text-lg leading-tight mb-1">{cancellationModal.booking.show.movie.title}</p>
-                <p className="text-gray-300"><span className="text-gray-500 text-xs">Date:</span> {dateFormate(cancellationModal.booking.show.showDateTime || cancellationModal.booking.showTime)}</p>
+                <p className="font-bold text-lg leading-tight mb-1">{cancellationModal.booking.show?.movie?.title || "Unknown Movie"}</p>
+                <p className="text-gray-300"><span className="text-gray-500 text-xs">Date:</span> {dateFormate(cancellationModal.booking.show?.showDateTime || cancellationModal.booking.showTime)}</p>
                 <p className="text-gray-300"><span className="text-gray-500 text-xs">Seats:</span> {cancellationModal.booking.bookedSeats.join(", ")}</p>
                 <p className="text-primary font-bold mt-1 max-w-max bg-primary/10 px-2 py-0.5 rounded">Refund: {currency}{cancellationModal.booking.amount}</p>
               </div>
