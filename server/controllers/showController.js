@@ -120,13 +120,13 @@ export const addShow = async (req, res) => {
       }
     }
 
-    // 3️⃣ Release date validation
+    // 3️⃣ Release date validation + build showDateTime list
     const releaseDate = new Date(movie.release_date);
 
-    const showsToCreate = [];
+    const candidateDateTimes = [];
 
-    showsInput.forEach(({ date, time }) => {
-      time.forEach((t) => {
+    for (const { date, time } of showsInput) {
+      for (const t of time) {
         const dt = new Date(`${date}T${t}`);
 
         if (dt < releaseDate) {
@@ -136,20 +136,55 @@ export const addShow = async (req, res) => {
           });
         }
 
-        showsToCreate.push({
-          movie: movieId,
-          theater,
-          showDateTime: dt,
-          showPrice,
-          occupiedSeats: {},
-        });
-      });
-    });
+        candidateDateTimes.push({ dt, date, time: t });
+      }
+    }
 
-    // 4️⃣ Insert all show entries at once
+    // 4️⃣ Duplicate check — find already-existing shows for same movie + theater + datetime
+    const existingShows = await Show.find({
+      movie: movieId,
+      theater,
+      showDateTime: { $in: candidateDateTimes.map((c) => c.dt) },
+    }).select("showDateTime");
+
+    const existingSet = new Set(
+      existingShows.map((s) => s.showDateTime.getTime())
+    );
+
+    const showsToCreate = [];
+    let duplicateCount = 0;
+
+    for (const { dt } of candidateDateTimes) {
+      if (existingSet.has(dt.getTime())) {
+        duplicateCount++;
+        continue; // skip duplicate
+      }
+      showsToCreate.push({
+        movie: movieId,
+        theater,
+        showDateTime: dt,
+        showPrice,
+        occupiedSeats: {},
+      });
+    }
+
+    // 5️⃣ Insert only non-duplicate shows
+    if (showsToCreate.length === 0) {
+      return res.json({
+        success: true,
+        message: `All ${duplicateCount} show(s) already exist for this movie at those times — nothing new added.`,
+        added: 0,
+        skipped: duplicateCount,
+      });
+    }
+
     await Show.insertMany(showsToCreate);
 
-    res.json({ success: true, message: "Shows added successfully" });
+    const msg = duplicateCount > 0
+      ? `${showsToCreate.length} shows added. ${duplicateCount} duplicate(s) skipped.`
+      : "Shows added successfully";
+
+    res.json({ success: true, message: msg, added: showsToCreate.length, skipped: duplicateCount });
   } catch (error) {
     console.error("❌ Error adding show:", error);
     res.status(500).json({ success: false, message: error.message });
@@ -587,5 +622,45 @@ export const getMovieTrailer = async (req, res) => {
   } catch (error) {
     console.error("❌ getMovieTrailer error:", error.message);
     res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/* =========================================================
+   BULK DELETE — delete multiple shows by IDs
+========================================================= */
+export const bulkDeleteShows = async (req, res) => {
+  try {
+    const { showIds } = req.body;
+    if (!Array.isArray(showIds) || showIds.length === 0)
+      return res.status(400).json({ success: false, message: "showIds array is required" });
+
+    const result = await Show.deleteMany({ _id: { $in: showIds } });
+    res.json({ success: true, deleted: result.deletedCount, message: `${result.deletedCount} show(s) deleted` });
+  } catch (error) {
+    console.error("❌ bulkDeleteShows error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/* =========================================================
+   BULK EDIT — update price and/or theater for multiple shows
+========================================================= */
+export const bulkEditShows = async (req, res) => {
+  try {
+    const { showIds, showPrice, theater } = req.body;
+    if (!Array.isArray(showIds) || showIds.length === 0)
+      return res.status(400).json({ success: false, message: "showIds array is required" });
+    if (!showPrice && !theater)
+      return res.status(400).json({ success: false, message: "Provide at least price or theater to update" });
+
+    const update = {};
+    if (showPrice) update.showPrice = Number(showPrice);
+    if (theater)   update.theater   = theater;
+
+    const result = await Show.updateMany({ _id: { $in: showIds } }, { $set: update });
+    res.json({ success: true, updated: result.modifiedCount, message: `${result.modifiedCount} show(s) updated` });
+  } catch (error) {
+    console.error("❌ bulkEditShows error:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };

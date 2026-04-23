@@ -17,6 +17,8 @@ import {
   getTopTrailers,
   getMovieTrailer,
   deleteAllShowsByMovie,
+  bulkDeleteShows,
+  bulkEditShows,
 } from "../controllers/showController.js";
 
 const showRouter = express.Router();
@@ -38,6 +40,8 @@ showRouter.delete("/delete/:showId", deleteShow);
 showRouter.delete("/delete-all/:movieId", deleteAllShowsByMovie);
 showRouter.get("/movie/:movieId/shows", getShowsForAdmin);
 showRouter.get("/movie/:movieId/trailer", getMovieTrailer);
+showRouter.post("/bulk-delete", bulkDeleteShows);
+showRouter.put("/bulk-edit", bulkEditShows);
 
 
 export default showRouter;

@@ -117,13 +117,22 @@ const AddShows = () => {
       );
 
       if (data.success) {
-        toast.success("Show added!");
-        setSelectedMovie(null);
-        setSelectedMovieData(null);
-        setDateTimeSelection({});
-        setShowPrice("");
-        setDateTimeInput("");
-        setSelectedTheater("N/A");
+        const added = data.added ?? 1;
+        const skipped = data.skipped ?? 0;
+        
+        if (added === 0) {
+          toast.error(`❌ All slots already exist — nothing new added!`);
+        } else {
+          toast.success(`✅ ${added} shows added! ${skipped > 0 ? `(${skipped} skipped)` : ""}`);
+          setSelectedMovie(null);
+          setSelectedMovieData(null);
+          setDateTimeSelection({});
+          setShowPrice("");
+          setDateTimeInput("");
+          setSelectedTheater("N/A");
+        }
+      } else {
+        toast.error(data.message || "Failed to add shows");
       }
     } catch (err) {
       console.error("AddShow Error:", err);
@@ -142,7 +151,8 @@ const AddShows = () => {
     for (let i = 0; i < 10; i++) {
         const d = new Date();
         d.setDate(d.getDate() + i);
-        const dateStr = d.toISOString().split("T")[0];
+        // local timezone string fix
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
         next10Days[dateStr] = [...standardTimes];
     }
     
