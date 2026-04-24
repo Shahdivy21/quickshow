@@ -102,7 +102,7 @@ const ListShows = () => {
 
   useEffect(() => { loadShows(); }, []);
 
-  // ─── Handle movie dropdown select → fetch customers ────────────────────────
+  // ─── Handle movie poster click → fetch TODAY's bookings only ───────────────
   const handleMovieSelect = async (movieId) => {
     setSelectedMovieId(movieId);
     setCustomerMovie(null);
@@ -121,15 +121,27 @@ const ListShows = () => {
         return;
       }
 
-      const filtered = (data.bookings || []).filter(
-        (b) =>
+      // ── Filter: only TODAY's bookings for this movie ──────────────────────
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+
+      const filtered = (data.bookings || []).filter((b) => {
+        const showDate = new Date(b.show?.showDateTime || b.showTime);
+        return (
           b.show?.movie?._id === movieId &&
           b.isPaid &&
-          b.status !== "cancelled"
-      );
+          b.status !== "cancelled" &&
+          showDate >= todayStart &&
+          showDate <= todayEnd
+        );
+      });
+
       setCustomers(filtered);
 
-      if (filtered.length === 0)  toast("No paid bookings found for this movie", { icon: "ℹ️" });
+      if (filtered.length === 0)
+        toast("No bookings for today for this movie", { icon: "ℹ️" });
     } catch (err) {
       console.error(err);
       toast.error("Failed to load customer list");
@@ -295,6 +307,10 @@ const ListShows = () => {
                   <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
                     <Users className="w-3.5 h-3.5 text-primary" />
                     {loadingCustomers ? "Loading..." : `${customers.length} Booked Customer${customers.length !== 1 ? "s" : ""}`}
+                  </p>
+                  <p className="text-[10px] text-primary/70 mt-0.5 flex items-center gap-1">
+                    <CalendarDays className="w-3 h-3" />
+                    Today — {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
                   </p>
                 </div>
               </div>
